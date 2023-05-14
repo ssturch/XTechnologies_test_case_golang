@@ -1,0 +1,23 @@
+<ValCurs Date="29.04.2023" name="Foreign Currency Market">
+<Valute ID="R01010">
+<NumCode>036</NumCode>
+<CharCode>AUD</CharCode>
+<Nominal>1</Nominal>
+<Name>Австралийский доллар</Name>
+<Values>53,2166</Values>
+</Valute>
+<Valute ID="R01020A">
+<NumCode>944</NumCode>
+<CharCode>AZN</CharCode>
+<Nominal>1</Nominal>
+<Name>Азербайджанский манат</Name>
+<Values>47,3584</Values>
+</Valute>
+<Valute ID="R01035">
+<NumCode>826</NumCode>
+<CharsCode>GBP</CharsCode>
+<Nominal>1</Nominal>
+<Name>Фунт стерлингов Соединенного королевства</Name>
+<Value>100,5883</Value>
+</Valute>
+</ValCurs>

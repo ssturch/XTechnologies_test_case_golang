@@ -1,0 +1,22 @@
+version: "2.13.0"
+
+services:
+  server:
+    build: ./
+    command: "/root/xtapi"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
+  postgres:
+    container_name: "clair_postgres"
+    image: postgres:latest
+    environment:
+#        POSTGRES_HOST: //postgres:qwerty@xtapi:5432?sslmode=disable
+        POSTGRES_DB: postgres
+        POSTGRS_USER: postgres
+        POSTGRES_PASSWORD: qwerty
+    ports:
+      - "5432:5432"
+
