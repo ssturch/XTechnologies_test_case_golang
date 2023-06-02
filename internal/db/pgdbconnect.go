@@ -27,6 +27,5 @@ func Pgdbconnect() (*sql.DB, error) {
 	}
 	pgdb.SetConnMaxIdleTime(1 * time.Second)
 	pgdb.SetConnMaxLifetime(1 * time.Second)
-	fmt.Println(pgdb)
 	return pgdb, nil
 }

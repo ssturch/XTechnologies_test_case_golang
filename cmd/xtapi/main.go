@@ -122,29 +122,24 @@ func mainprocess(pgdb *sql.DB, apires *map[string]interface{}, mut *sync.Mutex, 
 }
 
 // Горутина основного процесса (вызывает mainprocess по счетчику)
-func Worker(ctx context.Context, pgdb *sql.DB, apires *map[string]interface{}) {
+func worker(ctx context.Context, pgdb *sql.DB, apires *map[string]interface{}) {
 	var mutex sync.Mutex
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				i := dbp.GetStartIdBy_cbr_btc(pgdb)
-				j := dbp.GetStartIdBy_cbr_rub(pgdb)
-				heartbeatFirst := time.After(100 * time.Millisecond)
-				heartbeat := time.Tick(10 * time.Second)
-				for {
-					select {
-					case <-heartbeatFirst:
-						i, j = mainprocess(pgdb, apires, &mutex, i, j)
-					case <-heartbeat:
-						i, j = mainprocess(pgdb, apires, &mutex, i, j)
-					}
-				}
-			}
+
+	i := dbp.GetStartIdBy_cbr_btc(pgdb)
+	j := dbp.GetStartIdBy_cbr_rub(pgdb)
+	heartbeatFirst := time.After(100 * time.Millisecond)
+	heartbeat := time.Tick(10 * time.Second)
+	for {
+		select {
+		case <-heartbeatFirst:
+			i, j = mainprocess(pgdb, apires, &mutex, i, j)
+		case <-heartbeat:
+			i, j = mainprocess(pgdb, apires, &mutex, i, j)
+		case <-ctx.Done():
+			fmt.Println("Worker stopped!")
+			return
 		}
-	}()
+	}
 }
 
 func main() {
@@ -159,6 +154,8 @@ func main() {
 			QueryFunc: "Connect to DB",
 			Err:       err,
 		})
+		fmt.Println(err)
+		cancel()
 		os.Exit(0)
 	}
 	tempQueryVar := dbp.CreateTables()
@@ -169,48 +166,44 @@ func main() {
 				QueryFunc: "CreateTables()",
 				Err:       err,
 			})
-			break
+			fmt.Println(err)
+			cancel()
 			os.Exit(0)
 		}
 	}
 
+	// Отслеживание входящих запросов по REST API
+	go wb.Server(ctx, &APIResult)
+	// Горутина основного процесса (вызывает mainprocess по счетчику)
+	go worker(ctx, pgdb, &APIResult)
 	sigChan := make(chan os.Signal, 1)
+	exitChan := make(chan struct{})
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
-	exitChan := make(chan int)
 
-	// Отслеживание системных сигналов (частично совместим с Windows)
 	go func() {
 		for {
 			s := <-sigChan
+			cancel()
 			switch s {
 			case syscall.SIGINT:
-				fmt.Println("Catch: SIGNAL INTERRUPT | Server stopped | DB Closed")
-				cancel()
-				pgdb.Close()
-				exitChan <- 0
+				fmt.Println("Catch: SIGNAL INTERRUPT | Server stopping")
+				close(exitChan)
+				return
 			case os.Interrupt:
-				fmt.Println("Catch: SIGNAL INTERRUPT | Server stopped | DB Closed")
-				cancel()
-				pgdb.Close()
-				exitChan <- 0
+				fmt.Println("Catch: SIGNAL INTERRUPT | Server stopping")
+				close(exitChan)
+				return
 			case syscall.SIGTERM:
-				fmt.Println("Catch: SIGNAL TERMINATE | Server stopped | DB Closed")
-				cancel()
-				pgdb.Close()
-				exitChan <- 0
+				fmt.Println("Catch: SIGNAL TERMINATE | Server stopping")
+				close(exitChan)
+				return
 			case syscall.SIGKILL:
-				fmt.Println("Catch: SIGNAL KILL | Server stopped | DB Closed")
-				cancel()
-				pgdb.Close()
-				exitChan <- 0
+				fmt.Println("Catch: SIGNAL KILL | Server stopping")
+				close(exitChan)
+				return
 			}
 		}
 	}()
-
-	// Отслеживание входящих запросов по REST API
-	wb.Server(ctx, &APIResult)
-	// Горутина основного процесса (вызывает mainprocess по счетчику)
-	Worker(ctx, pgdb, &APIResult)
-	exitCode := <-exitChan
-	os.Exit(exitCode)
+	<-exitChan
+	time.Sleep(5 * time.Second)
 }

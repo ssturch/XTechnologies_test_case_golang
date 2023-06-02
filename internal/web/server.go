@@ -1,8 +1,8 @@
 package web
 
 import (
-	oth "XTapi/internal"
 	"context"
+	"fmt"
 	"net/http"
 )
 
@@ -14,30 +14,23 @@ const (
 // Отслеживание endpoint'ов
 func Server(ctx context.Context, apires *map[string]interface{}) {
 
+	var err error
+	srv := &http.Server{Addr: ":" + Port}
+	http.HandleFunc("/api/btcusdt", btcusdtHandler(apires))
+	http.HandleFunc("/api/currencies", currenciesRUBHandler(apires))
+	http.HandleFunc("/api/latest", currenciesBTCHandler(apires))
+	http.HandleFunc("/api/latest/", currenciesBTCbyCHARHandler(apires))
+
 	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				var err error
-				http.HandleFunc("/api/btcusdt", btcusdtHandler(apires))
-				http.HandleFunc("/api/currencies", currenciesRUBHandler(apires))
-				http.HandleFunc("/api/latest", currenciesBTCHandler(apires))
-				http.HandleFunc("/api/latest/", currenciesBTCbyCHARHandler(apires))
-				//realhost, _ := os.Hostname()
-				realhost := Host // для отладки
-				err = http.ListenAndServe(realhost+":"+Port, nil)
-				//err = http.ListenAndServe(realhost, nil)
-				if err != nil {
-					oth.ErrorLogger(&oth.CustomErr{
-						Tp:    "Internal",
-						Cause: "http.ListenAndServe",
-						Text:  "",
-						Err:   err,
-					})
-				}
-			}
+		err = srv.ListenAndServe()
+		if err != nil {
+			fmt.Println("Listen and Serve process stopped!")
+			return
 		}
 	}()
+
+	<-ctx.Done()
+	srv.Shutdown(ctx)
+	fmt.Println("Server stopped!")
+
 }
